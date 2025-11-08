@@ -29,6 +29,8 @@ def get_video_metadata(path):
 
 
 def link_to_hash(link: str) -> str:
+    """Создаёт криптографический хеш от строки.
+    Он всегда одинаков для одной и той же ссылки (детерминированный)."""
     return hashlib.sha1(link.encode()).hexdigest()[:16]
 
 
@@ -55,20 +57,20 @@ class FileTooLargeError(Exception):
 
 def download(link: str):
     video_id = link_to_hash(link)
-    output_path = os.path.join(CACHE_DIR, f"{video_id}.mp4")
-    info_path = os.path.join(CACHE_DIR, f"{video_id}.json")
+    video_file = os.path.join(CACHE_DIR, f"{video_id}.mp4")
+    meta_file = os.path.join(CACHE_DIR, f"{video_id}.json")
 
-    # ✅ Если есть кэш
-    if os.path.exists(output_path) and os.path.exists(info_path):
-        with open(info_path, "r", encoding="utf-8") as f:
+    # Проверка кеша видео
+    if os.path.exists(video_file ) and os.path.exists(meta_file):
+        with open(meta_file, "r", encoding="utf-8") as f:
             info = json.load(f)
-        return output_path, info
+        return video_file , info
 
-    # 🧹 Проверка размера кэша
+    # Проверка оставшегося места в кеше
     if get_cache_size() >= MAX_CACHE_SIZE:
         cleanup_cache()
 
-    # 👇 Всё как у тебя
+
     def stop_if_too_large(x):
         total = x.get('total_bytes') or x.get('total_bytes_estimate')
         if total and total > MAX_BYTES:
@@ -81,44 +83,40 @@ def download(link: str):
                     f"⚠️ Лимит Telegram 50MB. Превышение во время загрузки ({round(downloaded / 1024 / 1024, 1)} MB)")
 
     ydl_opts = {
-        "outtmpl": output_path,
+        "outtmpl": video_file,
         "merge_output_format": "mp4",
         "quiet": True,
         "progress_hooks": [stop_if_too_large],
         "add_metadata": True,
         "embed_thumbnail": True,
         "postprocessor_args": ["-movflags", "faststart"],
-        # "format": "best"
+        "format": "best"
     }
-
-    if "youtube" in link:
-        ydl_opts["format"] = "299+140/137+140/298+140/136+140/299+bestaudio[ext=m4a]/137+bestaudio[ext=m4a]/298+bestaudio[ext=m4a]/136+bestaudio[ext=m4a]/"
-    else:
-        ydl_opts["format"] = "best"
 
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(link, download=True)
 
-    meta = get_video_metadata(output_path)
+    meta = get_video_metadata(video_file)
 
-    # 💾 Сохраняем JSON-метаданные
     data = {
-        "duration": meta["duration"],
-        "width": meta["width"],
-        "height": meta["height"],
-        "title": info.get("title"),
-        "fulltitle": info.get("fulltitle"),
-        "description": info.get("description"),
-        "uploader": info.get("uploader"),
-        "uploader_id": info.get("uploader_id"),
-        "uploader_url": info.get("uploader_url"),
-        "channel": info.get("channel"),
-        'extractor_key': info.get("extractor_key"),
+        "duration": meta["duration"],                   # продолжительность
+        "width": meta["width"],                         # ширина
+        "height": meta["height"],                       # высота
+        "title": info.get("title"),                     # описание маленькое (YouTube)
+        "fulltitle": info.get("fulltitle"),             # описание маленькое (YouTube)
+        "description": info.get("description"),         # описание большое (YouTube)
+        "uploader": info.get("uploader"),               # никнейм (не ютуб)
+        "uploader_id": info.get("uploader_id"),         # @никнейм (YouTube)
+        "uploader_url": info.get("uploader_url"),       # URL на канал (YouTube)
+        "channel": info.get("channel"),                 # никнейм (не ютуб)
+        'extractor_key': info.get("extractor_key"),     # платформа
     }
 
-    with open(info_path, "w", encoding="utf-8") as f:
+    with open(meta_file, "w", encoding="utf-8") as f:
         json.dump(data, f)
 
-    pprint(info)
+    # для отладки через консоль
+    # pprint(info)                  # весь полученный JSON
+    # print(data, flush=True)       # метаданные
 
-    return output_path, data
+    return video_file, data

@@ -1,3 +1,5 @@
+import asyncio
+
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, FSInputFile
@@ -21,7 +23,7 @@ async def link_handler(message: Message, state: FSMContext):
 
     try:
         dm = await message.answer("⏳ Скачиваю...")
-        output_path, info = download(message.text)
+        output_path, info = await asyncio.to_thread(download, message.text)
 
         await message.answer_video(
             FSInputFile(output_path),
