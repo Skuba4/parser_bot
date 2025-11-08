@@ -88,13 +88,13 @@ def download(link: str):
         "add_metadata": True,
         "embed_thumbnail": True,
         "postprocessor_args": ["-movflags", "faststart"],
-        "format": "best"
+        # "format": "best"
     }
 
-    # if "youtube" in link:
-    #     ydl_opts["format"] = "299+140/137+140/298+140/136+140/299+bestaudio[ext=m4a]/137+bestaudio[ext=m4a]/298+bestaudio[ext=m4a]/136+bestaudio[ext=m4a]/"
-    # else:
-    #     ydl_opts["format"] = "best"
+    if "youtube" in link:
+        ydl_opts["format"] = "299+140/137+140/298+140/136+140/299+bestaudio[ext=m4a]/137+bestaudio[ext=m4a]/298+bestaudio[ext=m4a]/136+bestaudio[ext=m4a]/"
+    else:
+        ydl_opts["format"] = "best"
 
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(link, download=True)
